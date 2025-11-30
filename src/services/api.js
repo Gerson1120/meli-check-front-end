@@ -1,24 +1,15 @@
 import axios from 'axios';
-
-// CAMBIO IMPORTANTE: Puerto 8081 según tu application.properties
-const API_URL = 'http://localhost:8081'; 
-
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: 'http://localhost:8081',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 export default api;
