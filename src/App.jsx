@@ -3,16 +3,22 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import DealerHome from './pages/dealer/DealerHome';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import StoresList from './pages/admin/StoresList';
+import StoreForm from './pages/admin/StoreForm';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return <div className="p-10 text-center">Cargando MeliCheck...</div>;
+  if (loading) 
+    return <div className="p-10 text-center">Cargando MeliCheck...</div>;
   
-  if (!user) return <Navigate to="/login" />;
-  
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to={user.role === 'ADMIN' ? '/admin/dashboard' : '/dealer/home'} />;
+  if (!user) 
+    return <Navigate to="/login" />;
+
+  const role = user?.rol?.roleEnum;
+
+  if (requiredRole && role !== requiredRole) {
+    return <Navigate to={role === 'ADMIN' ? '/admin/dashboard' : '/dealer/home'} />;
   }
 
   return children;
@@ -38,6 +44,26 @@ function App() {
           } />
 
           <Route path="*" element={<Navigate to="/login" />} />
+
+                    <Route path="/admin/stores" element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <StoresList />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin/stores/create" element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <StoreForm />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin/stores/edit/:id" element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <StoreForm />
+            </ProtectedRoute>
+          } />
+
+
         </Routes>
       </BrowserRouter>
     </AuthProvider>

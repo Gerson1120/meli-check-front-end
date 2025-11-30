@@ -1,10 +1,13 @@
 import { useAuth } from '../../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const AdminDashboard = () => {
   const { logout, user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
+
+      {/* HEADER */}
       <div className="bg-white p-6 rounded-lg shadow-md flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Panel de Control</h1>
@@ -18,9 +21,21 @@ const AdminDashboard = () => {
         </button>
       </div>
 
-      <div className="bg-white p-10 rounded-lg shadow text-center">
-        <h2 className="text-xl text-gray-600">Bienvenido al sistema MeliCheck</h2>
-        <p className="text-gray-400 mt-2">Aquí gestionarás repartidores y tiendas.</p>
+      {/* MENU */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Link to="/admin/stores" className="bg-white p-8 rounded-lg shadow hover:shadow-lg transition">
+          <h2 className="text-xl font-semibold text-gray-700">Tiendas</h2>
+          <p className="text-gray-500 mt-2">Administrar tiendas</p>
+        </Link>
+
+        <Link to="assignments" className="bg-white p-8 rounded-lg shadow hover:shadow-lg transition">
+          <h2 className="text-xl font-semibold text-gray-700">Asignaciones</h2>
+          <p className="text-gray-500 mt-2">Gestionar repartidores y tiendas</p>
+        </Link>
+
+        <div className="bg-white p-8 rounded-lg shadow opacity-50">
+          <h2 className="text-xl font-semibold text-gray-700">Reportes (Próximamente)</h2>
+        </div>
       </div>
     </div>
   );
