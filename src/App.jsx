@@ -5,6 +5,8 @@ import DealerHome from './pages/dealer/DealerHome';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StoresList from './pages/admin/StoresList';
 import StoreForm from './pages/admin/StoreForm';
+import DealerForm from './pages/admin/DealerForm';
+import DealerList from './pages/admin/DealerList';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
@@ -63,7 +65,9 @@ function App() {
             </ProtectedRoute>
           } />
 
-
+          <Route path="/admin/dealers" element={<DealerList />} />
+          <Route path="/admin/dealers/new" element={<DealerForm />} />
+          <Route path="/admin/dealers/:id" element={<DealerForm />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

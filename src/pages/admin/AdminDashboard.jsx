@@ -30,7 +30,12 @@ const AdminDashboard = () => {
 
         <Link to="assignments" className="bg-white p-8 rounded-lg shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold text-gray-700">Asignaciones</h2>
-          <p className="text-gray-500 mt-2">Gestionar repartidores y tiendas</p>
+          <p className="text-gray-500 mt-2">Gestionar asignaciones</p>
+        </Link>
+
+        <Link to="/admin/dealers" className="bg-white p-8 rounded-lg shadow hover:shadow-lg transition">
+          <h2 className="text-xl font-semibold text-gray-700">Repartidores</h2>
+          <p className="text-gray-500 mt-2">Gestionar repartidores</p>
         </Link>
 
         <div className="bg-white p-8 rounded-lg shadow opacity-50">
