@@ -2,14 +2,17 @@ import api from "./api";
 
 export const VisitService = {
   getTodayVisits: () =>
-    api.get("/visits/today").then(res => res.data),
+    api.get("/api/visits/today"),
 
   getOpenVisits: () =>
-    api.get("/visits/open").then(res => res.data),
+    api.get("/api/visits/open"),
+
+  getById: (id) =>
+    api.get(`/api/visits/${id}`),
 
   getVisitById: (id) =>
-    api.get(`/visits/${id}`).then(res => res.data),
+    api.get(`/api/visits/${id}`),
 
   checkInByQr: (payload) =>
-    api.post("/visits/check-in/qr", payload).then(res => res.data)
+    api.post("/api/visits/check-in/qr", payload)
 };

@@ -22,6 +22,10 @@ import DealerAssignmentDetails from './pages/dealer/DealerAssignmentDetails';
 import DealerVisits from './pages/dealer/DealerVisits';
 import DealerVisitDetails from './pages/dealer/DealerVisitDetails';
 import DealerScan from './pages/dealer/DealerScan';
+import DealerOrderForm from './pages/dealer/DealerOrderForm';
+import DealerOrders from './pages/dealer/DealerOrders';
+import DealerOrderDetail from './pages/dealer/DealerOrderDetail';
+import DebugAuth from './pages/dealer/DebugAuth';
 
 import PrivateRoute from './components/PrivateRoute';
 
@@ -108,6 +112,26 @@ function App() {
           <Route
             path="/dealer/scan"
             element={<ProtectedRoute requiredRole="DEALER"><DealerScan /></ProtectedRoute>}
+          />
+
+          <Route
+            path="/dealer/visits/:visitId/order"
+            element={<ProtectedRoute requiredRole="DEALER"><DealerOrderForm /></ProtectedRoute>}
+          />
+
+          <Route
+            path="/dealer/orders"
+            element={<ProtectedRoute requiredRole="DEALER"><DealerOrders /></ProtectedRoute>}
+          />
+
+          <Route
+            path="/dealer/orders/:orderId"
+            element={<ProtectedRoute requiredRole="DEALER"><DealerOrderDetail /></ProtectedRoute>}
+          />
+
+          <Route
+            path="/dealer/debug"
+            element={<ProtectedRoute requiredRole="DEALER"><DebugAuth /></ProtectedRoute>}
           />
 
           {/* DEFAULT */}
