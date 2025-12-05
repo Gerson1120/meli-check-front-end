@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { getMyAssignments } from "../../services/assignmentService";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 const DealerAssignments = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -13,10 +15,12 @@ const DealerAssignments = () => {
 
   const loadAssignments = async () => {
     try {
+      setError("");
       const res = await getMyAssignments();
-      setAssignments(res.data.result);
+      setAssignments(res.data.result || []);
     } catch (err) {
       console.error("Error cargando asignaciones del dealer:", err);
+      setError("Error al cargar asignaciones: " + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }
@@ -25,11 +29,25 @@ const DealerAssignments = () => {
   if (loading) return <p className="text-center mt-10">Cargando asignaciones...</p>;
 
   return (
-    <div className="p-4 max-w-md mx-auto">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-md mx-auto">
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={() => navigate("/dealer/home")}
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-800">
+            Todas mis asignaciones
+          </h1>
+        </div>
 
-      <h1 className="text-xl font-bold mb-4 text-gray-800">
-        Mis asignaciones
-      </h1>
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
 
       {assignments.length === 0 && (
         <p className="text-gray-500 text-center mt-12">
@@ -95,6 +113,7 @@ const DealerAssignments = () => {
 
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
