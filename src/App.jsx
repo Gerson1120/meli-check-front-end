@@ -14,6 +14,9 @@ import ProductForm from './pages/admin/ProductForm';
 import AssignmentsList from './pages/admin/assignments/AssignmentsList';
 import CreateAssignment from './pages/admin/assignments/CreateAssignment';
 import EditAssignment from './pages/admin/assignments/EditAssignment';
+import AdminVisitsList from './pages/admin/AdminVisitsList';
+import AdminOrdersList from './pages/admin/AdminOrdersList';
+import AdminOrderDetail from './pages/admin/AdminOrderDetail';
 
 // DEALER
 import DealerHome from './pages/dealer/DealerHome';
@@ -81,6 +84,11 @@ function App() {
           <Route path="/admin/assignments" element={<ProtectedRoute requiredRole="ADMIN"><AssignmentsList /></ProtectedRoute>} />
           <Route path="/admin/assignments/create" element={<ProtectedRoute requiredRole="ADMIN"><CreateAssignment /></ProtectedRoute>} />
           <Route path="/admin/assignments/:id" element={<ProtectedRoute requiredRole="ADMIN"><EditAssignment /></ProtectedRoute>} />
+
+          <Route path="/admin/visits" element={<ProtectedRoute requiredRole="ADMIN"><AdminVisitsList /></ProtectedRoute>} />
+
+          <Route path="/admin/orders" element={<ProtectedRoute requiredRole="ADMIN"><AdminOrdersList /></ProtectedRoute>} />
+          <Route path="/admin/orders/:id" element={<ProtectedRoute requiredRole="ADMIN"><AdminOrderDetail /></ProtectedRoute>} />
 
 
           {/* DEALER */}

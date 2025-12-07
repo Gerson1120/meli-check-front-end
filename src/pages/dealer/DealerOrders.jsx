@@ -71,7 +71,7 @@ const DealerOrders = () => {
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <button
-            onClick={() => navigate("/dealer")}
+            onClick={() => navigate("/dealer/home")}
             className="p-2 hover:bg-gray-200 rounded-full transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
