@@ -54,7 +54,15 @@ const AdminDashboard = () => {
           <p className="text-gray-500 mt-2">Gestionar asignaciones</p>
         </Link>
 
+        <Link to="/admin/visits" className="bg-white p-8 rounded-lg shadow hover:shadow-lg transition">
+          <h2 className="text-xl font-semibold text-gray-700">Visitas</h2>
+          <p className="text-gray-500 mt-2">Ver todas las visitas</p>
+        </Link>
 
+        <Link to="/admin/orders" className="bg-white p-8 rounded-lg shadow hover:shadow-lg transition">
+          <h2 className="text-xl font-semibold text-gray-700">Pedidos</h2>
+          <p className="text-gray-500 mt-2">Ver todos los pedidos</p>
+        </Link>
 
         <div className="bg-white p-8 rounded-lg shadow opacity-50">
           <h2 className="text-xl font-semibold text-gray-700">Reportes (Próximamente)</h2>

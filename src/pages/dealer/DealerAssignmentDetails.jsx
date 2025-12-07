@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getMyAssignment } from "../../services/assignmentService";
+import { VisitService } from "../../services/visitService";
 import { ArrowLeft, MapPin, Calendar, QrCode, Clock } from "lucide-react";
 
 const DealerAssignmentDetails = () => {
@@ -8,9 +9,11 @@ const DealerAssignmentDetails = () => {
   const navigate = useNavigate();
   const [assignment, setAssignment] = useState(null);
   const [error, setError] = useState("");
+  const [hasActiveCheckIn, setHasActiveCheckIn] = useState(false);
 
   useEffect(() => {
     loadAssignment();
+    checkActiveVisit();
   }, [id]);
 
   const loadAssignment = async () => {
@@ -21,6 +24,21 @@ const DealerAssignmentDetails = () => {
     } catch (err) {
       console.error("Error cargando asignación:", err);
       setError("Error al cargar asignación: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const checkActiveVisit = async () => {
+    try {
+      const res = await VisitService.getOpenVisits();
+      const openVisits = res.data.result || [];
+      // Verificar si hay alguna visita abierta para esta asignación
+      const hasCheckIn = openVisits.some(visit =>
+        visit.assignment?.id === parseInt(id) &&
+        visit.status?.code === "CHECKED_IN"
+      );
+      setHasActiveCheckIn(hasCheckIn);
+    } catch (err) {
+      console.error("Error verificando visitas activas:", err);
     }
   };
 
@@ -113,14 +131,16 @@ const DealerAssignmentDetails = () => {
           </div>
         </div>
 
-        {/* Action Button */}
-        <button
-          className="w-full bg-green-600 text-white py-4 rounded-lg flex items-center justify-center gap-3 hover:bg-green-700 transition-colors shadow-md"
-          onClick={() => navigate(`/dealer/scan?storeId=${store.id}`)}
-        >
-          <QrCode className="w-6 h-6" />
-          <span className="font-semibold text-lg">Escanear QR de esta tienda</span>
-        </button>
+        {/* Action Button - Solo mostrar si no hay check-in activo */}
+        {!hasActiveCheckIn && (
+          <button
+            className="w-full bg-green-600 text-white py-4 rounded-lg flex items-center justify-center gap-3 hover:bg-green-700 transition-colors shadow-md"
+            onClick={() => navigate(`/dealer/scan?storeId=${store.id}`)}
+          >
+            <QrCode className="w-6 h-6" />
+            <span className="font-semibold text-lg">Escanear QR de esta tienda</span>
+          </button>
+        )}
       </div>
     </div>
   );
