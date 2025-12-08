@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import NotificationListener from './components/NotificationListener';
+import OfflineIndicator from './components/OfflineIndicator';
 
 import Login from './pages/Login';
 
@@ -30,6 +31,7 @@ import DealerOrderForm from './pages/dealer/DealerOrderForm';
 import DealerOrders from './pages/dealer/DealerOrders';
 import DealerOrderDetail from './pages/dealer/DealerOrderDetail';
 import DebugAuth from './pages/dealer/DebugAuth';
+import DealerSyncDebug from './pages/dealer/DealerSyncDebug';
 import FirebaseDebug from './pages/FirebaseDebug';
 
 import PrivateRoute from './components/PrivateRoute';
@@ -57,6 +59,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <NotificationListener />
+        <OfflineIndicator />
         <Routes>
 
           {/* LOGIN */}
@@ -146,6 +149,11 @@ function App() {
           <Route
             path="/dealer/debug"
             element={<ProtectedRoute requiredRole="DEALER"><DebugAuth /></ProtectedRoute>}
+          />
+
+          <Route
+            path="/dealer/sync-debug"
+            element={<ProtectedRoute requiredRole="DEALER"><DealerSyncDebug /></ProtectedRoute>}
           />
 
           {/* DEFAULT */}

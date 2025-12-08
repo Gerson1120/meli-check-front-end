@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { OrderService } from "../../services/orderService";
 import { ProductService } from "../../services/productService";
 import { VisitService } from "../../services/visitService";
-import { ArrowLeft, Plus, Trash2, Send, Save, ShoppingCart, Search } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Send, Save, ShoppingCart, Search, WifiOff, Wifi } from "lucide-react";
+import { isOnline, db } from "../../db/db";
+import { getProductsFromCache, getStoresFromCache } from "../../services/syncService";
 
 const DealerOrderForm = () => {
   const { visitId } = useParams();
@@ -18,24 +20,87 @@ const DealerOrderForm = () => {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showProductModal, setShowProductModal] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(!isOnline());
+  const [offlineStoreData, setOfflineStoreData] = useState(null);
 
   const DRAFT_KEY = `order_draft_${visitId}`;
 
   useEffect(() => {
     loadData();
+
+    // Listener para cambios de conexión
+    const handleOnline = () => setIsOfflineMode(false);
+    const handleOffline = () => setIsOfflineMode(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [visitId]);
 
   const loadData = async () => {
     try {
       setError("");
 
-      // Cargar visita
-      const visitRes = await VisitService.getById(visitId);
-      setVisit(visitRes.data.result);
+      // Verificar si es una visita offline (comienza con "offline-")
+      const isOfflineVisit = visitId.startsWith('offline-');
 
-      // Cargar productos activos
-      const productsRes = await ProductService.getActives();
-      setProducts(productsRes.data.result || []);
+      if (isOfflineVisit) {
+        // Cargar datos desde IndexedDB
+        console.log('📡 Modo offline - cargando datos desde caché local');
+
+        const localVisitId = parseInt(visitId.replace('offline-', ''));
+        const pendingVisit = await db.pendingVisits.get(localVisitId);
+
+        if (!pendingVisit) {
+          setError("No se encontró la visita offline");
+          setLoading(false);
+          return;
+        }
+
+        // Buscar la tienda en caché
+        const cachedStores = await getStoresFromCache();
+        const store = cachedStores.find(s => s.id === pendingVisit.storeId);
+
+        if (!store) {
+          setError("No se encontró la tienda en caché local");
+          setLoading(false);
+          return;
+        }
+
+        setOfflineStoreData(store);
+        setVisit({
+          id: visitId,
+          store: store,
+          offline: true,
+          localId: localVisitId
+        });
+
+        // Cargar productos desde caché
+        const cachedProducts = await getProductsFromCache();
+        setProducts(cachedProducts);
+        setIsOfflineMode(true);
+
+      } else {
+        // Modo online normal
+        if (isOnline()) {
+          // Cargar visita
+          const visitRes = await VisitService.getById(visitId);
+          setVisit(visitRes.data.result);
+
+          // Cargar productos activos
+          const productsRes = await ProductService.getActives();
+          setProducts(productsRes.data.result || []);
+        } else {
+          // Sin conexión pero visitId no es offline
+          setError("Sin conexión. No se pueden cargar los datos de la visita.");
+          setLoading(false);
+          return;
+        }
+      }
 
       // Cargar borrador desde localStorage si existe
       const savedDraft = localStorage.getItem(DRAFT_KEY);
@@ -51,7 +116,20 @@ const DealerOrderForm = () => {
 
     } catch (err) {
       console.error("Error cargando datos:", err);
-      setError("Error al cargar datos: " + (err.response?.data?.message || err.message));
+
+      // Si falla, intentar cargar productos desde caché
+      if (!isOnline()) {
+        try {
+          const cachedProducts = await getProductsFromCache();
+          setProducts(cachedProducts);
+          setError("Sin conexión. Usando catálogo offline.");
+          setIsOfflineMode(true);
+        } catch (cacheErr) {
+          setError("Error al cargar datos: " + (err.response?.data?.message || err.message));
+        }
+      } else {
+        setError("Error al cargar datos: " + (err.response?.data?.message || err.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -137,7 +215,9 @@ const DealerOrderForm = () => {
       return;
     }
 
-    if (!window.confirm("¿Estás seguro de enviar este pedido? Se enviará directamente sin guardar como borrador.")) {
+    const isOfflineVisit = visitId.startsWith('offline-');
+
+    if (!window.confirm(`¿Estás seguro de ${isOfflineVisit || !isOnline() ? 'guardar' : 'enviar'} este pedido?`)) {
       return;
     }
 
@@ -145,6 +225,43 @@ const DealerOrderForm = () => {
     setError("");
 
     try {
+      // Determinar storeId
+      let storeId = visit?.store?.id;
+      if (!storeId && offlineStoreData) {
+        storeId = offlineStoreData.id;
+      }
+
+      // Si es visita offline o no hay conexión, usar el método offline
+      if (isOfflineVisit || !isOnline()) {
+        const result = await OrderService.createOrderOffline({
+          visitId: isOfflineVisit ? null : parseInt(visitId),
+          storeId: storeId,
+          items: orderItems.map(item => ({
+            productId: item.productId,
+            name: item.productName,
+            productName: item.productName,
+            sku: item.productSku,
+            quantity: item.quantity,
+            price: item.unitPrice,
+            notes: item.notes,
+          })),
+          notes: notes
+        });
+
+        // Eliminar borrador del localStorage
+        localStorage.removeItem(DRAFT_KEY);
+
+        if (result.offline) {
+          alert("Pedido guardado offline. Se sincronizará cuando haya conexión.");
+        } else {
+          alert("Pedido enviado exitosamente");
+        }
+
+        navigate(`/dealer/orders`);
+        return;
+      }
+
+      // Modo online normal
       const payload = {
         visitId: parseInt(visitId),
         notes: notes,
@@ -201,6 +318,14 @@ const DealerOrderForm = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-4xl mx-auto">
+        {/* Indicador de estado offline/online */}
+        {isOfflineMode && (
+          <div className="bg-orange-500 text-white px-4 py-2 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - El pedido se sincronizará automáticamente</span>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-4 mb-4">
           <button
@@ -210,8 +335,9 @@ const DealerOrderForm = () => {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-800">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               Nuevo Pedido
+              {isOfflineMode && <WifiOff className="w-6 h-6 text-orange-500" />}
             </h1>
             <p className="text-sm text-gray-600">
               {visit?.store?.name}
@@ -350,11 +476,11 @@ const DealerOrderForm = () => {
           <button
             onClick={sendOrder}
             disabled={saving || orderItems.length === 0}
-            className="w-full bg-green-600 text-white py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className={`w-full ${isOfflineMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} text-white py-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed`}
           >
-            <Send className="w-5 h-5" />
+            {isOfflineMode ? <Save className="w-5 h-5" /> : <Send className="w-5 h-5" />}
             <span className="font-semibold">
-              {saving ? "Enviando..." : "Enviar Pedido"}
+              {saving ? (isOfflineMode ? "Guardando..." : "Enviando...") : (isOfflineMode ? "Guardar Pedido Offline" : "Enviar Pedido")}
             </span>
           </button>
 
