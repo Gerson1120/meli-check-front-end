@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Calendar, Package, LogOut, ShoppingBag } from "lucide-react";
+import NotificationBell from "../../components/NotificationBell";
 
 const DealerHome = () => {
   const navigate = useNavigate();
@@ -16,12 +17,15 @@ const DealerHome = () => {
               <h1 className="text-2xl font-bold text-gray-800">MeliCheck</h1>
               <p className="text-gray-500">Repartidor: {user?.name || user?.email}</p>
             </div>
-            <button
-              onClick={logout}
-              className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <button
+                onClick={logout}
+                className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 

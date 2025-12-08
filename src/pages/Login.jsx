@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Truck, Lock, Mail } from 'lucide-react';
+import { messaging, VAPID_KEY, getToken } from '../config/firebase-config';
+import api from '../services/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +13,84 @@ const Login = () => {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const requestNotificationPermission = async () => {
+    try {
+      // Verificar si el navegador soporta notificaciones
+      if (!('Notification' in window)) {
+        console.log('Este navegador no soporta notificaciones');
+        return null;
+      }
+
+      // Verificar si messaging está disponible
+      if (!messaging) {
+        console.log('Firebase Messaging no está disponible');
+        return null;
+      }
+
+      // Solicitar permiso de notificaciones
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        console.log('Permiso de notificaciones concedido');
+
+        // Registrar el Service Worker de Firebase
+        if ('serviceWorker' in navigator) {
+          try {
+            console.log('📝 Registrando firebase-messaging-sw.js...');
+            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+              scope: '/'
+            });
+            console.log('✅ Service Worker registrado:', registration.scope);
+
+            // Esperar a que esté activo
+            await navigator.serviceWorker.ready;
+            console.log('✅ Service Worker está listo');
+          } catch (swError) {
+            console.error('❌ Error registrando Service Worker:', swError);
+          }
+        }
+
+        // Intentar obtener token FCM con manejo de errores mejorado
+        try {
+          const fcmToken = await getToken(messaging, {
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration: await navigator.serviceWorker.ready
+          });
+
+          if (fcmToken) {
+            console.log('Token FCM obtenido:', fcmToken);
+
+            // Guardar el token en el backend
+            try {
+              await api.post('/api/users/fcm-token', { fcmToken });
+              console.log('Token FCM guardado en el servidor');
+            } catch (error) {
+              console.error('Error al guardar token FCM en el servidor:', error);
+            }
+
+            return fcmToken;
+          } else {
+            console.log('No se pudo obtener el token FCM');
+            return null;
+          }
+        } catch (tokenError) {
+          console.error('Error obteniendo token FCM:', tokenError);
+          console.warn('Continuando sin notificaciones push...');
+          // No bloquear el login si falla Firebase
+          return null;
+        }
+      } else {
+        console.log('Permiso de notificaciones denegado');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error solicitando permiso de notificaciones:', error);
+      console.warn('Continuando sin notificaciones push...');
+      // No bloquear el login si falla
+      return null;
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,17 +103,20 @@ const Login = () => {
     if (result.success) {
       console.log("✅ Login Exitoso. Rol recibido:", result.role);
 
+      // Solicitar permiso de notificaciones después del login exitoso
+      await requestNotificationPermission();
+
       // Normalizamos el rol para evitar errores de mayúsculas/minúsculas/espacios
       // Convertimos a String por si viene null o undefined, luego a mayúsculas y quitamos espacios
       const roleStr = String(result.role).toUpperCase().trim();
-      
+
       // Validación robusta:
       // Si es "ADMIN", "ROLE_ADMIN", "ADMINISTRADOR", etc., entrará aquí.
       if (roleStr === 'ADMIN' || roleStr.includes('ADMIN')) {
-        console.log("➡️ Redirigiendo a Panel Administrador...");
+        console.log("➡ Redirigiendo a Panel Administrador...");
         navigate('/admin/dashboard');
       } else {
-        console.log("➡️ Redirigiendo a App Repartidor...");
+        console.log("➡ Redirigiendo a App Repartidor...");
         navigate('/dealer/home');
       }
     } else {

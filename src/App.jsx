@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import NotificationListener from './components/NotificationListener';
 
 import Login from './pages/Login';
 
@@ -29,6 +30,7 @@ import DealerOrderForm from './pages/dealer/DealerOrderForm';
 import DealerOrders from './pages/dealer/DealerOrders';
 import DealerOrderDetail from './pages/dealer/DealerOrderDetail';
 import DebugAuth from './pages/dealer/DebugAuth';
+import FirebaseDebug from './pages/FirebaseDebug';
 
 import PrivateRoute from './components/PrivateRoute';
 
@@ -54,10 +56,14 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <NotificationListener />
         <Routes>
 
           {/* LOGIN */}
           <Route path="/login" element={<Login />} />
+
+          {/* FIREBASE DEBUG (sin autenticación) */}
+          <Route path="/firebase-debug" element={<FirebaseDebug />} />
 
           {/* ADMIN */}
           <Route
