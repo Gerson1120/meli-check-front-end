@@ -1,5 +1,6 @@
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
+import NotificationBell from '../../components/NotificationBell';
 
 const AdminDashboard = () => {
   const { logout, user } = useAuth();
@@ -24,12 +25,15 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-        <button
-          onClick={logout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm"
-        >
-          Salir
-        </button>
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <button
+            onClick={logout}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            Salir
+          </button>
+        </div>
       </div>
 
       {/* MENU */}

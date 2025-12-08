@@ -7,7 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      devOptions: { enabled: true },
+      devOptions: {
+        enabled: false  // Deshabilitamos VitePWA para usar solo Firebase SW
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'MeliCheck Operaciones',
@@ -15,13 +17,13 @@ export default defineConfig({
         description: 'Gestión de repartidores y visitas',
         theme_color: '#ffffff',
         background_color: '#ffffff',
-        display: 'standalone', // Esto hace que parezca una app nativa
+        display: 'standalone',
         scope: '/',
         start_url: '/',
         orientation: 'portrait',
         icons: [
           {
-            src: '/public/192.png', // Debes crear estas imágenes luego
+            src: '/public/192.png',
             sizes: '192x192',
             type: 'image/png'
           },
@@ -30,24 +32,6 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png'
           }
-        ]
-      },
-      workbox: {
-        // Estrategias de caché:
-        // Cachear API responses o imágenes si es necesario
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-            {
-                urlPattern: /^https:\/\/tu-api-backend\.com\/.*$/,
-                handler: 'NetworkFirst', // Intenta red, si falla, usa caché (útil para catálogos)
-                options: {
-                    cacheName: 'api-cache',
-                    expiration: {
-                        maxEntries: 50,
-                        maxAgeSeconds: 60 * 60 * 24 // 1 día
-                    }
-                }
-            }
         ]
       }
     })

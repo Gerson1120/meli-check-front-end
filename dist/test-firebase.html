@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Firebase - Diagnóstico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            background-color: #4285f4;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background-color: #357ae8;
+        }
+
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .warning {
+            color: orange;
+        }
+
+        .info {
+            color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔥 Test Firebase - Diagnóstico</h1>
+        <p>Esta página te ayudará a diagnosticar problemas con Firebase Cloud Messaging.</p>
+
+        <button onclick="testFirebaseConfig()">1. Probar Configuración Firebase</button>
+        <button onclick="testNotificationPermission()">2. Probar Permisos de Notificación</button>
+        <button onclick="testServiceWorker()">3. Probar Service Worker</button>
+        <button onclick="testGetToken()">4. Obtener Token FCM</button>
+        <button onclick="clearLog()">Limpiar Log</button>
+
+        <div id="log" class="log"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getMessaging, getToken } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
+
+        // Tu configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQ4zmGyhXAc-xSh3nPujfeg9eEAfiPfV4",
+            authDomain: "cygdp-7c00f.firebaseapp.com",
+            projectId: "cygdp-7c00f",
+            storageBucket: "cygdp-7c00f.firebasestorage.app",
+            messagingSenderId: "966588180784",
+            appId: "1:966588180784:web:1de673a345d89bfcad00f5"
+        };
+
+        const VAPID_KEY = "BMtujeVKTse-GL7Y4FkAdpAo_9oKdugmQERt3-0I48El-nPUc-5C44177OTotJzzVd2mHi0CJ6ENafvflp9Zn_Q";
+
+        let app, messaging;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += <div class="${type}">[${timestamp}] ${message}</div>;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+
+        window.clearLog = function () {
+            document.getElementById('log').innerHTML = '';
+        };
+
+        window.testFirebaseConfig = async function () {
+            try {
+                log('🔧 Probando configuración de Firebase...', 'info');
+
+                app = initializeApp(firebaseConfig);
+                log('✅ Firebase App inicializada correctamente', 'success');
+                log(`   Project ID: ${firebaseConfig.projectId}`, 'info');
+
+                try {
+                    messaging = getMessaging(app);
+                    log('✅ Firebase Messaging inicializado correctamente', 'success');
+                } catch (msgError) {
+                    log(`❌ Error inicializando Messaging: ${msgError.message}`, 'error');
+                    throw msgError;
+                }
+
+            } catch (error) {
+                log(`❌ Error en configuración: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.testNotificationPermission = async function () {
+            try {
+                log('🔔 Probando permisos de notificación...', 'info');
+
+                if (!('Notification' in window)) {
+                    log('❌ Este navegador NO soporta notificaciones', 'error');
+                    return;
+                }
+
+                log(`   Estado actual: ${Notification.permission}`, 'info');
+
+                if (Notification.permission === 'granted') {
+                    log('✅ Permisos ya concedidos', 'success');
+                } else if (Notification.permission === 'denied') {
+                    log('❌ Permisos DENEGADOS por el usuario', 'error');
+                    log('⚠  Debes restablecer permisos en configuración del navegador', 'warning');
+                } else {
+                    log('⏳ Solicitando permisos...', 'info');
+                    const permission = await Notification.requestPermission();
+
+                    if (permission === 'granted') {
+                        log('✅ Permisos CONCEDIDOS', 'success');
+                    } else {
+                        log('❌ Permisos DENEGADOS', 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ Error en permisos: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.testServiceWorker = async function () {
+            try {
+                log('⚙  Probando Service Worker...', 'info');
+
+                if (!('serviceWorker' in navigator)) {
+                    log('❌ Este navegador NO soporta Service Workers', 'error');
+                    return;
+                }
+
+                log('⏳ Registrando Service Worker...', 'info');
+
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                    scope: '/'
+                });
+
+                log('✅ Service Worker registrado', 'success');
+                log(`   Scope: ${registration.scope}`, 'info');
+                log(`   Estado: ${registration.active ? 'Activo' : 'Inactivo'}`, 'info');
+
+                await navigator.serviceWorker.ready;
+                log('✅ Service Worker listo', 'success');
+
+            } catch (error) {
+                log(`❌ Error en Service Worker: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.testGetToken = async function () {
+            try {
+                log('🎫 Intentando obtener token FCM...', 'info');
+
+                if (!messaging) {
+                    log('⚠  Primero ejecuta "Probar Configuración Firebase"', 'warning');
+                    return;
+                }
+
+                if (Notification.permission !== 'granted') {
+                    log('⚠  Primero ejecuta "Probar Permisos de Notificación"', 'warning');
+                    return;
+                }
+
+                // Asegurar que el Service Worker esté registrado
+                await navigator.serviceWorker.ready;
+
+                log('⏳ Obteniendo token...', 'info');
+                log(`   VAPID Key: ${VAPID_KEY.substring(0, 20)}...`, 'info');
+
+                const token = await getToken(messaging, {
+                    vapidKey: VAPID_KEY,
+                    serviceWorkerRegistration: await navigator.serviceWorker.ready
+                });
+
+                if (token) {
+                    log('✅ TOKEN FCM OBTENIDO:', 'success');
+                    log(`   ${token}`, 'success');
+                    log('', 'info');
+                    log('📋 Copia este token y guárdalo en tu backend', 'info');
+                } else {
+                    log('❌ No se pudo obtener el token', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Error obteniendo token: ${error.message}`, 'error');
+                log(`   Código: ${error.code}`, 'error');
+                console.error('Error completo:', error);
+
+                if (error.code === 'messaging/permission-blocked') {
+                    log('⚠  Permisos bloqueados. Ve a configuración del sitio y permite notificaciones', 'warning');
+                } else if (error.code === 'messaging/registration-token-not-subscribed') {
+                    log('⚠  Problema con la suscripción. Intenta limpiar caché del navegador', 'warning');
+                } else if (error.message.includes('403')) {
+                    log('⚠  ERROR 403: Problema de permisos en Firebase', 'warning');
+                    log('   Soluciones:', 'info');
+                    log('   1. Ve a Google Cloud Console → APIs & Services → Credentials', 'info');
+                    log('   2. Edita la API Key y quita TODAS las restricciones', 'info');
+                    log('   3. Guarda y espera 1-2 minutos', 'info');
+                }
+            }
+        };
+
+        // Auto-ejecutar test de configuración al cargar
+        window.addEventListener('load', () => {
+            log('🚀 Página de diagnóstico cargada', 'info');
+            log('👉 Click en los botones en orden (1, 2, 3, 4) para diagnosticar', 'info');
+            log('', 'info');
+        });
+    </script>
+</body>
+
+</html>
