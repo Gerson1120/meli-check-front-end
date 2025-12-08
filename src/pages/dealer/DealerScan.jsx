@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useZxing } from "react-zxing";
 import { VisitService } from "../../services/visitService";
-import { ArrowLeft, MapPin, Camera, ShoppingCart, XCircle, Keyboard } from "lucide-react";
-import { db } from "../../db/db";
+import { ArrowLeft, MapPin, Camera, ShoppingCart, XCircle, Keyboard, WifiOff } from "lucide-react";
+import { db, isOnline } from "../../db/db";
+import { getStoreByQrFromCache } from "../../services/syncService";
 
 const DealerScan = () => {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ const DealerScan = () => {
   const [visitData, setVisitData] = useState(null);
   const [manualMode, setManualMode] = useState(false);
   const [manualQr, setManualQr] = useState("");
+  const [isOffline, setIsOffline] = useState(!isOnline());
+  const [offlineStore, setOfflineStore] = useState(null);
 
   // Obtener ubicación del usuario
   useEffect(() => {
@@ -39,6 +42,18 @@ const DealerScan = () => {
     } else {
       setGeoError("Tu navegador no soporta geolocalización.");
     }
+
+    // Listener para cambios de conexión
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const { ref } = useZxing({
@@ -64,8 +79,48 @@ const DealerScan = () => {
 
     setLoading(true);
     setError("");
+    setOfflineStore(null);
 
     try {
+      // Si estamos offline, buscar en caché local
+      if (isOffline) {
+        console.log("📡 Modo offline - buscando tienda en caché local");
+        const cachedStore = await getStoreByQrFromCache(qrText);
+
+        if (!cachedStore) {
+          setError("No se encontró la tienda en la caché local. Asegúrate de haber sincronizado los datos previamente.");
+          setLoading(false);
+          return;
+        }
+
+        // Guardar check-in offline
+        const pendingVisitId = await db.pendingVisits.add({
+          storeId: cachedStore.id,
+          qrCode: qrText,
+          latitude: geoLocation.latitude || 0,
+          longitude: geoLocation.longitude || 0,
+          timestamp: new Date().toISOString(),
+          synced: 0,
+          syncAttempts: 0,
+          errorMessage: null
+        });
+
+        console.log("💾 Check-in guardado offline:", pendingVisitId);
+
+        // Preparar datos de visita offline para UI
+        setOfflineStore(cachedStore);
+        setVisitData({
+          id: `offline-${pendingVisitId}`,
+          store: cachedStore,
+          offline: true,
+          localId: pendingVisitId
+        });
+        setCheckInSuccess(true);
+        setLoading(false);
+        return;
+      }
+
+      // Modo online - intentar check-in normal
       const payload = {
         qrCode: qrText,
         latitude: geoLocation.latitude || 0,
@@ -93,20 +148,38 @@ const DealerScan = () => {
         errorMsg += "QR inválido o no corresponde a una tienda asignada.";
       }
 
-      setError(errorMsg);
-
       // Intentar guardar offline si falla
       try {
-        await db.pendingVisits.add({
-          qrCode: qrText,
-          latitude: geoLocation.latitude || 0,
-          longitude: geoLocation.longitude || 0,
-          timestamp: new Date().toISOString(),
-          synced: 0,
-        });
-        setError(errorMsg + " (Guardado offline para sincronizar después)");
+        // Buscar tienda en caché
+        const cachedStore = await getStoreByQrFromCache(qrText);
+
+        if (cachedStore) {
+          const pendingVisitId = await db.pendingVisits.add({
+            storeId: cachedStore.id,
+            qrCode: qrText,
+            latitude: geoLocation.latitude || 0,
+            longitude: geoLocation.longitude || 0,
+            timestamp: new Date().toISOString(),
+            synced: 0,
+            syncAttempts: 0,
+            errorMessage: null
+          });
+
+          setError(errorMsg + " - Guardado offline para sincronizar después");
+          setOfflineStore(cachedStore);
+          setVisitData({
+            id: `offline-${pendingVisitId}`,
+            store: cachedStore,
+            offline: true,
+            localId: pendingVisitId
+          });
+          setCheckInSuccess(true);
+        } else {
+          setError(errorMsg + " - No se pudo guardar offline (tienda no encontrada en caché)");
+        }
       } catch (dbErr) {
         console.error("Error guardando offline:", dbErr);
+        setError(errorMsg);
       }
     } finally {
       setLoading(false);
@@ -128,21 +201,32 @@ const DealerScan = () => {
             <h2 className="text-xl font-bold">Check-in Exitoso</h2>
           </div>
 
-          <div className="bg-green-100 border border-green-400 rounded-lg p-6 mb-6">
+          <div className={`${visitData.offline ? 'bg-yellow-100 border-yellow-400' : 'bg-green-100 border-green-400'} border rounded-lg p-6 mb-6`}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-2xl">✓</span>
+              <div className={`w-12 h-12 ${visitData.offline ? 'bg-yellow-500' : 'bg-green-500'} rounded-full flex items-center justify-center`}>
+                {visitData.offline ? (
+                  <WifiOff className="w-6 h-6 text-white" />
+                ) : (
+                  <span className="text-white text-2xl">✓</span>
+                )}
               </div>
               <div>
-                <h3 className="text-lg font-bold text-green-900">
-                  Check-in realizado
+                <h3 className={`text-lg font-bold ${visitData.offline ? 'text-yellow-900' : 'text-green-900'}`}>
+                  Check-in {visitData.offline ? 'guardado offline' : 'realizado'}
                 </h3>
-                <p className="text-sm text-green-700">
+                <p className={`text-sm ${visitData.offline ? 'text-yellow-700' : 'text-green-700'}`}>
                   {visitData.store?.name}
                 </p>
               </div>
             </div>
-            <p className="text-sm text-green-800">
+            {visitData.offline && (
+              <div className="mb-2 p-2 bg-yellow-50 rounded border border-yellow-300">
+                <p className="text-sm text-yellow-800 font-semibold">
+                  ⚠ Modo offline: Se sincronizará cuando haya conexión
+                </p>
+              </div>
+            )}
+            <p className={`text-sm ${visitData.offline ? 'text-yellow-800' : 'text-green-800'}`}>
               Registro de ubicación: {geoLocation.latitude?.toFixed(6)}, {geoLocation.longitude?.toFixed(6)}
             </p>
           </div>
@@ -189,6 +273,14 @@ const DealerScan = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-md mx-auto">
+        {/* Indicador de estado offline/online */}
+        {isOffline && (
+          <div className="bg-orange-500 text-white px-4 py-2 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - Los datos se sincronizarán automáticamente</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-4 mb-4">
           <button
             onClick={() => navigate(-1)}

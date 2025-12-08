@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { db } from '../db/db';
+import { setupAutoSync, syncAllDataToLocal, syncAllPendingData } from '../services/syncService';
 
 const AuthContext = createContext();
 
@@ -20,6 +21,16 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     };
     checkSession();
+
+    // Configurar auto-sincronización al iniciar la app
+    setupAutoSync();
+
+    // Sincronizar datos pendientes al cargar (si hay conexión)
+    if (navigator.onLine) {
+      syncAllPendingData().catch(err => {
+        console.error('Error en sincronización inicial:', err);
+      });
+    }
   }, []);
 
   const login = async (email, password) => {
@@ -78,6 +89,20 @@ export const AuthProvider = ({ children }) => {
       } catch (e) { console.warn(e); }
 
       setUser(userToStore);
+
+      // Después de login exitoso, sincronizar datos para uso offline (solo si es DEALER)
+      if (roleName === 'DEALER') {
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Sincronizando datos para uso offline...');
+            await syncAllDataToLocal();
+            console.log('✅ Datos sincronizados para uso offline');
+          } catch (error) {
+            console.error('❌ Error sincronizando datos offline:', error);
+          }
+        }, 1000); // Esperar 1 segundo después del login
+      }
+
       return { success: true, role: roleName };
 
     } catch (error) {
