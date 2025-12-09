@@ -62,112 +62,179 @@ const EditAssignment = () => {
   if (!form && !error) return <p className="p-8">Cargando asignación...</p>;
 
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-4">
+  <div className="min-h-screen bg-gradient-to-br from-white-50 to-indigo-100 p-6">
+    <div className="max-w-4xl mx-auto">
+
+      {/* HEADER */}
+      <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => navigate("/admin/assignments")}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          className="p-3 hover:bg-white/50 rounded-full transition-all shadow-sm hover:shadow-md"
           type="button"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-6 h-6 text-gray-700" />
         </button>
-        <h1 className="text-2xl font-bold">Editar asignación #{id}</h1>
+
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">
+            Editar Asignación #{id}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Modifica los datos de esta asignación
+          </p>
+        </div>
       </div>
 
+      {/* ERROR */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 max-w-lg">
-          {error}
+        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg mb-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 
+                  1.414L8.586 10l-1.293 1.293a1 1 0 101.414 
+                  1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 
+                  10l1.293-1.293a1 1 0 00-1.414-1.414L10 
+                  8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="font-medium">Error</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      {!form && error ? (
-        <p className="text-red-600">No se pudo cargar la asignación</p>
-      ) : null}
+      {!form && !error && (
+        <p className="text-gray-700 text-center">Cargando asignación...</p>
+      )}
 
+      {/* FORMULARIO */}
       {form && (
-
-      <form onSubmit={submit} className="bg-white p-6 rounded shadow w-full max-w-md">
-
-        {/* Tipo */}
-        <label className="block mb-2 font-semibold">Tipo de asignación</label>
-        <select
-          name="assignmentType"
-          value={form.assignmentType}
-          onChange={change}
-          className="input w-full"
-          required
+        <form
+          onSubmit={submit}
+          className="bg-white rounded-2xl shadow-xl p-8 space-y-6"
         >
-          <option value="PERMANENT">Permanente</option>
-          <option value="TEMPORARY">Temporal</option>
-        </select>
 
-        {/* Frecuencia (solo permanente) */}
-        {form.assignmentType === "PERMANENT" && (
-          <>
-            <label className="block mt-4 font-semibold">Frecuencia (días)</label>
-            <input
-              type="number"
-              name="frequencyDays"
-              value={form.frequencyDays}
+          {/* Tipo de Asignación */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">
+              Tipo de asignación
+            </label>
+            <select
+              name="assignmentType"
+              value={form.assignmentType}
               onChange={change}
-              className="input w-full"
-              min="1"
-              required
-            />
-          </>
-        )}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg
+              focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="PERMANENT">Permanente</option>
+              <option value="TEMPORARY">Temporal</option>
+            </select>
+          </div>
 
-        {/* Fecha inicio */}
-        <label className="block mt-4 font-semibold">Fecha inicio</label>
-        <input
-          type="date"
-          name="startDate"
-          value={form.startDate}
-          onChange={change}
-          className="input w-full"
-          required={form.assignmentType === "TEMPORARY"}
-        />
+          {/* Frecuencia */}
+          {form.assignmentType === "PERMANENT" && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">
+                Frecuencia (días)
+              </label>
+              <input
+                type="number"
+                name="frequencyDays"
+                value={form.frequencyDays}
+                onChange={change}
+                min="1"
+                required
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg
+                focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+            </div>
+          )}
 
-        {/* Fecha fin (solo temporal) */}
-        {form.assignmentType === "TEMPORARY" && (
-          <>
-            <label className="block mt-4 font-semibold">Fecha fin</label>
+          {/* Fecha Inicio */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">
+              Fecha de inicio
+            </label>
             <input
               type="date"
-              name="endDate"
-              value={form.endDate}
+              name="startDate"
+              value={form.startDate}
               onChange={change}
-              className="input w-full"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg
+              focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
-          </>
-        )}
+          </div>
 
-        {/* Estado */}
-        <label className="block mt-4 font-semibold">Estado</label>
-        <select
-          name="isActive"
-          value={form.isActive}
-          onChange={(e) =>
-            setForm({ ...form, isActive: e.target.value === "true" })
-          }
-          className="input w-full"
-        >
-          <option value="true">Activa</option>
-          <option value="false">Inactiva</option>
-        </select>
+          {/* Fecha Fin TEMPORAL */}
+          {form.assignmentType === "TEMPORARY" && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">
+                Fecha de fin
+              </label>
+              <input
+                type="date"
+                name="endDate"
+                value={form.endDate}
+                onChange={change}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg
+                focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+            </div>
+          )}
 
-        <button
-          type="submit"
-          className="mt-6 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded disabled:bg-gray-400 disabled:cursor-not-allowed"
-          disabled={loading}
-        >
-          {loading ? "Actualizando..." : "Actualizar"}
-        </button>
+          {/* Estado */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">
+              Estado
+            </label>
+            <select
+              name="isActive"
+              value={form.isActive}
+              onChange={(e) =>
+                setForm({ ...form, isActive: e.target.value === "true" })
+              }
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg
+              focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="true">Activa</option>
+              <option value="false">Inactiva</option>
+            </select>
+          </div>
 
-      </form>
+          {/* BUTTONS */}
+          <div className="flex gap-4 pt-4">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/assignments")}
+              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg
+              hover:bg-gray-50 font-medium transition-all"
+              disabled={loading}
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600
+              text-white rounded-lg hover:from-blue-700 hover:to-indigo-700
+              font-medium shadow-md hover:shadow-lg transition-all"
+            >
+              {loading ? "Actualizando..." : "Guardar Cambios"}
+            </button>
+          </div>
+        </form>
       )}
     </div>
-  );
+  </div>
+);
+
 };
 
 export default EditAssignment;

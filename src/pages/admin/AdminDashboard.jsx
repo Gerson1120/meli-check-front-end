@@ -68,9 +68,7 @@ const AdminDashboard = () => {
           <p className="text-gray-500 mt-2">Ver todos los pedidos</p>
         </Link>
 
-        <div className="bg-white p-8 rounded-lg shadow opacity-50">
-          <h2 className="text-xl font-semibold text-gray-700">Reportes (Próximamente)</h2>
-        </div>
+
       </div>
     </div>
   );
