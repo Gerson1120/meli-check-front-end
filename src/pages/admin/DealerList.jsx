@@ -14,7 +14,6 @@ const DealerList = () => {
       const res = await DealerService.getAll();
       setDealers(res.data.result);
     } catch (e) {
-      console.error("Error cargando dealers", e);
       setError("Error al cargar dealers: " + (e.response?.data?.message || e.message));
     }
   };
@@ -28,16 +27,13 @@ const DealerList = () => {
         const res = await DealerService.getAll();
         if (isMounted) setDealers(res.data.result);
       } catch (e) {
-        console.error("Error cargando dealers", e);
-        if (isMounted) setError("Error al cargar dealers: " + (e.response?.data?.message || e.message));
+        if (isMounted)
+          setError("Error al cargar dealers: " + (e.response?.data?.message || e.message));
       }
     };
 
     load();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => (isMounted = false);
   }, []);
 
   const handleToggle = async (id) => {
@@ -46,81 +42,107 @@ const DealerList = () => {
       await DealerService.toggle(id);
       await loadDealers();
     } catch (e) {
-      console.error("Error al cambiar estado del dealer", e);
       setError("Error al cambiar estado del dealer: " + (e.response?.data?.message || e.message));
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/admin/dashboard")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+    <div className="min-h-screen bg-white p-6">
+      <div className="max-w-6xl mx-auto">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/admin/dashboard")}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
+
+            <h1 className="text-2xl font-semibold text-gray-900">Repartidores</h1>
+          </div>
+
+          <Link
+            className="bg-blue-800 text-white px-5 py-2.5 rounded-lg hover:bg-blue-900 transition"
+            to="/admin/dealers/new"
           >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-2xl font-bold">Repartidores</h1>
+            + Crear Dealer
+          </Link>
         </div>
-        <Link
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          to="/admin/dealers/new"
-        >
-          + Crear Dealer
-        </Link>
-      </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
+        {/* Error */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            {error}
+          </div>
+        )}
 
-      <table className="w-full mt-4 border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="p-2 border">ID</th>
-            <th className="p-2 border">Nombre</th>
-            <th className="p-2 border">Email</th>
-            <th className="p-2 border">Teléfono</th>
-            <th className="p-2 border">Estado</th>
-            <th className="p-2 border">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
+        {/* Cards Grid */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {dealers.map((d) => (
-            <tr key={d.id}>
-              <td className="p-2 border">{d.id}</td>
-              <td className="p-2 border">{d.name} {d.lastName}</td>
-              <td className="p-2 border">{d.email}</td>
-              <td className="p-2 border">{d.phone || "N/A"}</td>
-              <td className="p-2 border">
-                {d.isActive ? (
-                  <span className="text-green-600 font-semibold">Activo</span>
-                ) : (
-                  <span className="text-red-600 font-semibold">Inactivo</span>
-                )}
-              </td>
-              <td className="p-2 border">
+            <div
+              key={d.id}
+              className="bg-white border border-blue-700 rounded-xl shadow-sm hover:shadow-md transition p-6"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {d.name} {d.lastName}
+                  </h2>
+                  <p className="text-gray-500 text-sm">{d.email}</p>
+                </div>
+
+                <span
+                  className={`px-3 py-1 text-xs font-medium rounded-full ${
+                    d.isActive
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {d.isActive ? "Activo" : "Inactivo"}
+                </span>
+              </div>
+
+              {/* Phone */}
+              <p className="text-sm text-gray-700 mb-4">
+                <span className="font-semibold text-gray-800">Tel:</span>{" "}
+                {d.phone || "N/A"}
+              </p>
+
+              {/* Actions */}
+              <div className="flex gap-3 mt-4">
                 <Link
-                  className="text-blue-600 mr-3 hover:underline"
                   to={`/admin/dealers/${d.id}`}
+                  className="flex-1 text-center border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium"
                 >
                   Editar
                 </Link>
 
                 <button
-                  className={`${d.isActive ? "text-red-600" : "text-green-600"} hover:underline`}
                   onClick={() => handleToggle(d.id)}
+                  className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
+                    d.isActive
+                      ? "border border-red-300 text-red-600 hover:bg-red-100"
+                      : "border border-green-300 text-green-700 hover:bg-green-100"
+                  }`}
                 >
                   {d.isActive ? "Desactivar" : "Activar"}
                 </button>
-              </td>
-            </tr>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+
+        {/* No dealers */}
+        {dealers.length === 0 && (
+          <div className="text-center mt-10 text-gray-600">
+            No hay repartidores registrados.
+          </div>
+        )}
+
+      </div>
     </div>
   );
 };

@@ -54,101 +54,120 @@ const AssignmentsList = () => {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+  <div className="min-h-screen bg-white p-6">
+    <div className="max-w-7xl mx-auto">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/admin/dashboard")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-2xl font-bold">Asignaciones</h1>
+
+          <h1 className="text-2xl font-semibold text-gray-900">Asignaciones</h1>
         </div>
+
         <Link
           to="/admin/assignments/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-800 text-white px-5 py-2.5 rounded-lg hover:bg-blue-900 transition"
         >
           + Crear asignación
         </Link>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
           <p className="font-bold mb-2">Error:</p>
           <p>{error}</p>
-          {error.includes("403") || error.includes("permisos") ? (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded">
-              <p className="font-semibold text-yellow-800 mb-1">💡 Solución:</p>
-              <ul className="text-yellow-900 text-sm list-disc list-inside">
-                <li>Cierra sesión y vuelve a iniciar sesión como administrador</li>
-                <li>Credenciales de admin: <code className="bg-yellow-200 px-1">admin@gmail.com</code> / <code className="bg-yellow-200 px-1">1234</code></li>
-                <li>Verifica que tu usuario tenga el rol ADMIN</li>
-              </ul>
-            </div>
-          ) : null}
         </div>
       )}
 
-      {loading && <p className="text-center py-4">Cargando asignaciones...</p>}
+      {loading && <p className="text-gray-600 text-center py-4">Cargando asignaciones...</p>}
 
-      <div className="bg-white shadow rounded p-4 mt-4">
-        <table className="min-w-full">
-          <thead>
-            <tr className="border-b">
-              <th>ID</th>
-              <th>Repartidor</th>
-              <th>Tienda</th>
-              <th>Tipo</th>
-              <th>Fecha inicio</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
+      {/* === GRID DE CARDS === */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
 
-          <tbody>
-            {assignments.length === 0 && (
-              <tr><td colSpan="7" className="text-center py-4">No hay asignaciones</td></tr>
-            )}
+        {assignments.length === 0 && !loading && (
+          <div className="col-span-full text-center text-gray-600 py-10">
+            No hay asignaciones.
+          </div>
+        )}
 
-            {assignments.map(a => (
-              <tr key={a.id} className="border-b text-center">
-                <td>{a.id}</td>
-                <td>{a.dealer?.email}</td>
-                <td>{a.store?.name}</td>
-                <td>{a.assignmentType?.code}</td>
-                <td>{a.startDate}</td>
+        {assignments.map((a) => (
+          <div
+            key={a.id}
+            className={`rounded-xl shadow-sm hover:shadow-md transition overflow-hidden border ${
+              a.isActive
+                ? "border-blue-700 bg-blue-50/40"
+                : "border-gray-300 bg-white"
+            }`}
+          >
+            {/* Header dinámico */}
+            <div
+              className={`p-5 border-b ${
+                a.isActive
+                  ? "bg-blue-700 text-white border-blue-600"
+                  : "bg-gray-200 text-gray-800 border-gray-300"
+              }`}
+            >
+              <h2 className="text-lg font-semibold">Asignación #{a.id}</h2>
 
-                <td>
-                  <span className={`px-2 py-1 rounded text-white 
-                    ${a.isActive ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {a.isActive ? "Activo" : "Inactivo"}
-                  </span>
-                </td>
+              <span
+                className={`inline-block mt-2 text-xs font-semibold px-3 py-1 rounded-full ${
+                  a.isActive ? "bg-white/20 text-white" : "bg-gray-500 text-white"
+                }`}
+              >
+                {a.isActive ? "● Activo" : "● Inactivo"}
+              </span>
+            </div>
 
-                <td className="flex gap-2 justify-center py-2">
-                  <Link
-                    to={`/admin/assignments/${a.id}`}
-                    className="px-3 py-1 bg-yellow-500 text-white rounded"
-                  >
-                    Editar
-                  </Link>
+            {/* Body */}
+            <div className="p-5 space-y-3 text-gray-800">
+              <p className="text-sm">
+                <span className="font-semibold">Repartidor:</span> {a.dealer?.email}
+              </p>
 
-                  <button
-                    onClick={() => handleToggle(a.id)}
-                    className="px-3 py-1 bg-gray-600 text-white rounded"
-                  >
-                    Toggle
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+              <p className="text-sm">
+                <span className="font-semibold">Tienda:</span> {a.store?.name}
+              </p>
 
-        </table>
+              <p className="text-sm">
+                <span className="font-semibold">Tipo:</span> {a.assignmentType?.code}
+              </p>
+
+              <p className="text-sm">
+                <span className="font-semibold">Fecha inicio:</span> {a.startDate}
+              </p>
+
+              {/* Acciones */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Link
+                  to={`/admin/assignments/${a.id}`}
+                  className="text-center px-4 py-2 rounded-lg border border-gray-300 text-gray-800 hover:bg-gray-100 transition text-sm font-medium"
+                >
+                  Editar
+                </Link>
+
+                <button
+                  onClick={() => handleToggle(a.id)}
+                  className="text-center px-4 py-2 rounded-lg border border-gray-400 text-gray-700 hover:bg-gray-200 transition text-sm font-medium"
+                >
+                  {a.isActive ? "Desactivar" : "Activar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
       </div>
     </div>
-  );
+  </div>
+);
+
 };
 
 export default AssignmentsList;
