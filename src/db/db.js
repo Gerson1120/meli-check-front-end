@@ -37,8 +37,8 @@ db.version(2).stores({
   // Visitas pendientes con más metadata
   pendingVisits: '++id, storeId, qrCode, timestamp, latitude, longitude, synced, syncAttempts, errorMessage',
 
-  // Pedidos pendientes con más información
-  pendingOrders: '++id, visitId, storeId, items, total, createdAt, synced, syncAttempts, errorMessage',
+  // Pedidos pendientes con más información (incluye offlineUniqueId para evitar duplicados)
+  pendingOrders: '++id, offlineUniqueId, visitId, storeId, items, total, createdAt, synced, syncAttempts, errorMessage',
 
   // Metadata de sincronización
   syncMetadata: 'key, lastSync, status'
@@ -53,50 +53,47 @@ db.version(2).stores({
 
 // Función auxiliar para saber si hay datos pendientes
 export const hasPendingData = async () => {
-    const visits = await db.pendingVisits.where('synced').equals(0).count();
-    const orders = await db.pendingOrders.where('synced').equals(0).count();
-    return (visits + orders) > 0;
+  const visits = await db.pendingVisits.where('synced').equals(0).count();
+  const orders = await db.pendingOrders.where('synced').equals(0).count();
+  return (visits + orders) > 0;
 };
 
 // Función para obtener el conteo de datos pendientes
 export const getPendingCounts = async () => {
-    const visits = await db.pendingVisits.where('synced').equals(0).count();
-    const orders = await db.pendingOrders.where('synced').equals(0).count();
-    return { visits, orders, total: visits + orders };
+  const visits = await db.pendingVisits.where('synced').equals(0).count();
+  const orders = await db.pendingOrders.where('synced').equals(0).count();
+  return { visits, orders, total: visits + orders };
 };
 
-// Función para limpiar datos viejos (opcional)
-export const cleanOldSyncedData = async (daysOld = 30) => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+// Función para limpiar datos pendientes que fallaron múltiples veces (opcional)
+export const cleanFailedSyncData = async (maxAttempts = 10) => {
+  // Eliminar visitas que han fallado demasiadas veces (probablemente inválidas)
+  await db.pendingVisits
+    .where('syncAttempts').above(maxAttempts)
+    .delete();
 
-    await db.pendingVisits
-        .where('synced').equals(1)
-        .and(item => new Date(item.timestamp) < cutoffDate)
-        .delete();
-
-    await db.pendingOrders
-        .where('synced').equals(1)
-        .and(item => new Date(item.createdAt) < cutoffDate)
-        .delete();
+  // Eliminar pedidos que han fallado demasiadas veces (probablemente inválidos)
+  await db.pendingOrders
+    .where('syncAttempts').above(maxAttempts)
+    .delete();
 };
 
 // Función para verificar si estamos online
 export const isOnline = () => {
-    return navigator.onLine;
+  return navigator.onLine;
 };
 
 // Función para obtener última sincronización
 export const getLastSync = async (key = 'lastFullSync') => {
-    const metadata = await db.syncMetadata.get(key);
-    return metadata?.lastSync || null;
+  const metadata = await db.syncMetadata.get(key);
+  return metadata?.lastSync || null;
 };
 
 // Función para actualizar última sincronización
 export const updateLastSync = async (key = 'lastFullSync') => {
-    await db.syncMetadata.put({
-        key,
-        lastSync: new Date().toISOString(),
-        status: 'success'
-    });
+  await db.syncMetadata.put({
+    key,
+    lastSync: new Date().toISOString(),
+    status: 'success'
+  });
 };

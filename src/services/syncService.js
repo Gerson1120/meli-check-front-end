@@ -177,15 +177,11 @@ export const syncPendingVisits = async () => {
         longitude: visit.longitude
       });
 
-      // Marcar como sincronizado
-      await db.pendingVisits.update(visit.id, {
-        synced: 1,
-        syncedAt: new Date().toISOString(),
-        serverVisitId: response.data.result?.id
-      });
+      // Eliminar la visita de IndexedDB ya que fue sincronizada exitosamente
+      await db.pendingVisits.delete(visit.id);
 
       results.success++;
-      console.log(`✅ Visita ${visit.id} sincronizada`);
+      console.log(`✅ Visita ${visit.id} sincronizada con servidor (Visit ID: ${response.data.result?.id}) y eliminada de caché local`);
     } catch (error) {
       console.error(`❌ Error sincronizando visita ${visit.id}:, error`);
 
@@ -287,24 +283,20 @@ export const syncPendingOrders = async () => {
         notes: item.notes || ''
       }));
 
-      // Crear pedido en el servidor
+      // Crear pedido en el servidor (incluye offlineUniqueId para prevenir duplicados)
       const response = await api.post('/api/orders/', {
         visitId: visitIdToUse,
         items: itemsForServer,
         total: order.total,
-        notes: order.notes || ''
+        notes: order.notes || '',
+        offlineUniqueId: order.offlineUniqueId // Enviar el ID único offline
       });
 
-      // Marcar como sincronizado
-      await db.pendingOrders.update(order.id, {
-        synced: 1,
-        syncedAt: new Date().toISOString(),
-        serverOrderId: response.data.result?.id,
-        visitId: visitIdToUse // Asegurar que quede guardado
-      });
+      // Eliminar el pedido de IndexedDB ya que fue sincronizado exitosamente
+      await db.pendingOrders.delete(order.id);
 
       results.success++;
-      console.log(`✅ Pedido ${order.id} sincronizado con servidor (Order ID: ${response.data.result?.id})`);
+      console.log(`✅ Pedido ${order.id} sincronizado con servidor (Order ID: ${response.data.result?.id}) y eliminado de caché local`);
     } catch (error) {
       console.error(`❌ Error sincronizando pedido ${order.id}:, error`);
 
