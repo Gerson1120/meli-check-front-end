@@ -1,10 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useZxing } from "react-zxing";
 import { VisitService } from "../../services/visitService";
 import { ArrowLeft, MapPin, Camera, ShoppingCart, XCircle, Keyboard, WifiOff } from "lucide-react";
 import { db, isOnline } from "../../db/db";
 import { getStoreByQrFromCache } from "../../services/syncService";
+
+// Componente separado para la cámara que se puede remontar completamente
+const QRScanner = ({ onScan }) => {
+  const { ref } = useZxing({
+    onDecodeResult(result) {
+      const qrText = result.getText();
+      onScan(qrText);
+    },
+    onError(err) {
+      console.warn("Camera error:", err);
+    },
+  });
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-3">
+        <Camera className="w-5 h-5 text-blue-600" />
+        <span className="font-semibold">Escáner QR</span>
+      </div>
+      <video ref={ref} className="w-full rounded-lg shadow-lg" />
+    </>
+  );
+};
 
 const DealerScan = () => {
   const navigate = useNavigate();
@@ -22,6 +45,9 @@ const DealerScan = () => {
   const [manualQr, setManualQr] = useState("");
   const [isOffline, setIsOffline] = useState(!isOnline());
   const [offlineStore, setOfflineStore] = useState(null);
+  const [cameraKey, setCameraKey] = useState(0); // Key para forzar reinicio de cámara
+  const prevManualModeRef = useRef(manualMode); // Rastrear valor anterior de manualMode
+  const lastProcessedQrRef = useRef(null); // Rastrear último QR procesado para evitar duplicados
 
   // Obtener ubicación del usuario
   useEffect(() => {
@@ -56,16 +82,33 @@ const DealerScan = () => {
     };
   }, []);
 
-  const { ref } = useZxing({
-    onDecodeResult(result) {
-      const qrText = result.getText();
-      setResult(qrText);
-      processQr(qrText);
-    },
-    onError(err) {
-      console.warn("Camera error:", err);
-    },
-  });
+  // Forzar reinicio de cámara cuando se regresa de modo manual a cámara
+  useEffect(() => {
+    // Solo incrementar key cuando hacemos la transición de manual (true) a cámara (false)
+    if (prevManualModeRef.current === true && manualMode === false) {
+      setCameraKey(prev => prev + 1);
+    }
+    // Actualizar la referencia con el valor actual
+    prevManualModeRef.current = manualMode;
+  }, [manualMode]);
+
+  // Resetear el último QR procesado cuando el usuario vuelve a la pantalla de escaneo
+  useEffect(() => {
+    if (!checkInSuccess) {
+      lastProcessedQrRef.current = null;
+    }
+  }, [checkInSuccess]);
+
+  const handleQrScan = (qrText) => {
+    // Evitar procesar el mismo QR múltiples veces
+    if (lastProcessedQrRef.current === qrText) {
+      return; // Ignorar si es el mismo QR que acabamos de procesar
+    }
+
+    lastProcessedQrRef.current = qrText;
+    setResult(qrText);
+    processQr(qrText);
+  };
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -337,14 +380,7 @@ const DealerScan = () => {
         {/* Cámara o Input Manual */}
         <div className="bg-white rounded-lg p-4 shadow">
           {!manualMode ? (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <Camera className="w-5 h-5 text-blue-600" />
-                <span className="font-semibold">Escáner QR</span>
-              </div>
-
-              <video ref={ref} className="w-full rounded-lg shadow-lg" />
-            </>
+            <QRScanner key={cameraKey} onScan={handleQrScan} />
           ) : (
             <>
               <div className="flex items-center gap-2 mb-3">

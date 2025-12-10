@@ -130,7 +130,11 @@ export const OrderService = {
  */
 const saveOrderOffline = async (visitId, storeId, items, total, notes) => {
   try {
+    // Generar un identificador único para este pedido offline
+    const offlineUniqueId = `OFFLINE-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
     const offlineOrder = {
+      offlineUniqueId, // ID único para identificar este pedido offline
       visitId: visitId || null,
       storeId,
       items: items.map(item => ({
