@@ -1,26 +1,68 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../services/api";
-import { ArrowLeft, QrCode, CheckCircle, Clock } from "lucide-react";
+import { VisitService } from "../../services/visitService";
+import { ArrowLeft, QrCode, CheckCircle, Clock, WifiOff } from "lucide-react";
+import { isOnline } from "../../db/db";
+import { cacheArrayItems } from "../../services/cacheService";
 
 const DealerVisits = () => {
   const navigate = useNavigate();
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isOffline, setIsOffline] = useState(!isOnline());
+  const [fromCache, setFromCache] = useState(false);
 
   useEffect(() => {
     loadTodayVisits();
+
+    // Listener para cambios de conexión
+    const handleOnline = () => {
+      setIsOffline(false);
+      loadTodayVisits(); // Recargar cuando vuelve conexión
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    // 🔄 Listener para sincronización global de datos
+    const handleDataRefreshed = () => {
+      console.log('🔄 Datos refrescados globalmente - Recargando visitas desde cache...');
+      loadTodayVisits(true); // true = usar cache-first porque ya refrescamos
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('dataRefreshed', handleDataRefreshed);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('dataRefreshed', handleDataRefreshed);
+    };
   }, []);
 
-  const loadTodayVisits = async () => {
+  const loadTodayVisits = async (cacheFirst = false) => {
     try {
+      console.log(`📥 DealerVisits: Cargando visitas de hoy... ${cacheFirst ? '(cache-first)' : '(network-first)'}`);
       setError("");
-      const res = await api.get("/api/visits/today");
-      setVisits(res.data.result || []);
+      const res = await VisitService.getTodayVisits(cacheFirst);
+      const visitsList = res.data.result || [];
+      console.log(`✅ DealerVisits: ${visitsList.length} visitas cargadas`, res.fromCache ? '(desde cache)' : '(desde red)');
+      setVisits(visitsList);
+      setFromCache(res.fromCache || false);
+
+      // Cachear cada visita individualmente para poder acceder offline
+      if (visitsList.length > 0) {
+        await cacheArrayItems(visitsList, '/api/visits');
+      }
     } catch (err) {
       console.error("Error cargando visitas:", err);
-      setError("Error al cargar visitas: " + (err.response?.data?.message || err.message));
+
+      // Mensaje más amigable para offline sin cache
+      if (!isOnline() && err.message?.includes('cache')) {
+        setError("No hay conexión y no se han cargado visitas previamente. Conéctate a internet para cargar tus visitas.");
+      } else {
+        setError("Error al cargar visitas: " + (err.response?.data?.message || err.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -77,6 +119,21 @@ const DealerVisits = () => {
             </p>
           </div>
         </div>
+
+        {/* Indicador de modo offline */}
+        {isOffline && (
+          <div className="bg-orange-500 text-white px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - Mostrando datos guardados</span>
+          </div>
+        )}
+
+        {/* Indicador de datos del cache */}
+        {fromCache && !isOffline && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            <p className="text-sm">ℹ️ Mostrando datos del cache local</p>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

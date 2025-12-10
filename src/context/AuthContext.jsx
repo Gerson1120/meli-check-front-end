@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { db } from '../db/db';
-import { setupAutoSync, syncAllDataToLocal, syncAllPendingData } from '../services/syncService';
+import { setupAutoSync, syncAllDataToLocal, syncAllPendingData, preCacheAllDealerData } from '../services/syncService';
 
 const AuthContext = createContext();
 
@@ -31,6 +31,69 @@ export const AuthProvider = ({ children }) => {
         console.error('Error en sincronización inicial:', err);
       });
     }
+
+    // 🔄 LISTENER GLOBAL: Auto-sincronizar cuando vuelve la conexión
+    const handleOnlineGlobal = async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+
+        // Solo auto-sincronizar para dealers
+        if (userData.role === 'DEALER') {
+          console.log('🌐 Conexión restaurada - Sincronizando nuevos datos del servidor...');
+
+          try {
+            // Sincronizar datos pendientes primero
+            await syncAllPendingData();
+
+            // Luego refrescar cache con datos actualizados del servidor
+            await preCacheAllDealerData();
+
+            console.log('✅ Sincronización automática completada - Datos actualizados');
+
+            // Disparar evento personalizado para que los componentes se refresquen
+            window.dispatchEvent(new CustomEvent('dataRefreshed'));
+          } catch (error) {
+            console.error('❌ Error en sincronización automática:', error);
+          }
+        }
+      }
+    };
+
+    // 🔔 LISTENER GLOBAL: Auto-sincronizar cuando llega una notificación nueva
+    const handleNewNotification = async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+
+        // Solo auto-sincronizar para dealers Y si está online
+        if (userData.role === 'DEALER' && navigator.onLine) {
+          console.log('🔔 Nueva notificación recibida - Refrescando datos en segundo plano...');
+
+          try {
+            // Refrescar cache con datos actualizados del servidor
+            await preCacheAllDealerData();
+
+            console.log('✅ Datos refrescados automáticamente - Nuevas visitas/asignaciones disponibles');
+
+            // Disparar evento personalizado para que los componentes se refresquen
+            window.dispatchEvent(new CustomEvent('dataRefreshed'));
+          } catch (error) {
+            console.error('❌ Error refrescando datos después de notificación:', error);
+          }
+        } else if (userData.role === 'DEALER' && !navigator.onLine) {
+          console.log('📴 Nueva notificación recibida pero estás offline - Datos se sincronizarán cuando vuelvas online');
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnlineGlobal);
+    window.addEventListener('newNotification', handleNewNotification);
+
+    return () => {
+      window.removeEventListener('online', handleOnlineGlobal);
+      window.removeEventListener('newNotification', handleNewNotification);
+    };
   }, []);
 
   const login = async (email, password) => {
@@ -90,15 +153,15 @@ export const AuthProvider = ({ children }) => {
 
       setUser(userToStore);
 
-      // Después de login exitoso, sincronizar datos para uso offline (solo si es DEALER)
+      // Después de login exitoso, PRE-CACHEAR todos los datos (solo si es DEALER)
       if (roleName === 'DEALER') {
         setTimeout(async () => {
           try {
-            console.log('🔄 Sincronizando datos para uso offline...');
-            await syncAllDataToLocal();
-            console.log('✅ Datos sincronizados para uso offline');
+            console.log('🚀 Pre-cacheando todos los datos del dealer...');
+            await preCacheAllDealerData();
+            console.log('✅ Todos los datos pre-cacheados - ¡Listo para trabajar offline!');
           } catch (error) {
-            console.error('❌ Error sincronizando datos offline:', error);
+            console.error('❌ Error pre-cacheando datos:', error);
           }
         }, 1000); // Esperar 1 segundo después del login
       }

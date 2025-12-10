@@ -1,18 +1,33 @@
 import api from "./api";
+import { networkFirstThenCache } from "./cacheService";
 
 export const VisitService = {
-  // Dealer endpoints
-  getTodayVisits: () =>
-    api.get("/api/visits/today"),
+  // Dealer endpoints con cache
+  getTodayVisits: (cacheFirst = false) =>
+    networkFirstThenCache(
+      () => api.get("/api/visits/today"),
+      "/api/visits/today",
+      null,
+      cacheFirst
+    ),
 
   getOpenVisits: () =>
-    api.get("/api/visits/open"),
+    networkFirstThenCache(
+      () => api.get("/api/visits/open"),
+      "/api/visits/open"
+    ),
 
   getById: (id) =>
-    api.get(`/api/visits/${id}`),
+    networkFirstThenCache(
+      () => api.get(`/api/visits/${id}`),
+      `/api/visits/${id}`
+    ),
 
   getVisitById: (id) =>
-    api.get(`/api/visits/${id}`),
+    networkFirstThenCache(
+      () => api.get(`/api/visits/${id}`),
+      `/api/visits/${id}`
+    ),
 
   checkInByQr: (payload) =>
     api.post("/api/visits/check-in/qr", payload),

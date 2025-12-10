@@ -1,12 +1,13 @@
 import api from "./api";
 import { db, isOnline } from '../db/db';
+import { networkFirstThenCache } from "./cacheService";
 
 /**
  * Servicio de pedidos con soporte offline
  */
 export const OrderService = {
   // ==========================================
-  // Métodos originales (online)
+  // Métodos originales (online) con cache
   // ==========================================
 
   // Dealer endpoints
@@ -18,11 +19,23 @@ export const OrderService = {
 
   cancelOrder: (orderId) => api.post(`/api/orders/${orderId}/cancel`),
 
-  getOrderById: (orderId) => api.get(`/api/orders/${orderId}`),
+  getOrderById: (orderId) =>
+    networkFirstThenCache(
+      () => api.get(`/api/orders/${orderId}`),
+      `/api/orders/${orderId}`
+    ),
 
-  getOrdersByVisit: (visitId) => api.get(`/api/orders/visit/${visitId}`),
+  getOrdersByVisit: (visitId) =>
+    networkFirstThenCache(
+      () => api.get(`/api/orders/visit/${visitId}`),
+      `/api/orders/visit/${visitId}`
+    ),
 
-  getMyOrders: () => api.get("/api/orders/my-orders"),
+  getMyOrders: () =>
+    networkFirstThenCache(
+      () => api.get("/api/orders/my-orders"),
+      "/api/orders/my-orders"
+    ),
 
   // Admin endpoints
   filterOrders: (params) => {

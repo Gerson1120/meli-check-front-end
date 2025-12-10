@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getMyAssignment } from "../../services/assignmentService";
+import { getMyAssignment, getMyAssignments } from "../../services/assignmentService";
 import { VisitService } from "../../services/visitService";
-import { ArrowLeft, MapPin, Calendar, QrCode, Clock } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, QrCode, Clock, WifiOff } from "lucide-react";
+import { isOnline } from "../../db/db";
 
 const DealerAssignmentDetails = () => {
   const { id } = useParams();
@@ -10,10 +11,28 @@ const DealerAssignmentDetails = () => {
   const [assignment, setAssignment] = useState(null);
   const [error, setError] = useState("");
   const [hasActiveCheckIn, setHasActiveCheckIn] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!isOnline());
 
   useEffect(() => {
     loadAssignment();
     checkActiveVisit();
+
+    // Listener para cambios de conexión
+    const handleOnline = () => {
+      setIsOffline(false);
+      loadAssignment();
+      checkActiveVisit();
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [id]);
 
   const loadAssignment = async () => {
@@ -21,9 +40,31 @@ const DealerAssignmentDetails = () => {
       setError("");
       const res = await getMyAssignment(id);
       setAssignment(res.data.result);
+      setFromCache(res.fromCache || false);
     } catch (err) {
-      console.error("Error cargando asignación:", err);
-      setError("Error al cargar asignación: " + (err.response?.data?.message || err.message));
+      console.error("❌ Error cargando asignación individual:", err);
+
+      // Si falla, intentar buscarla en el cache de "my-assignments"
+      try {
+        console.log("🔍 Buscando asignación en cache de 'my-assignments'...");
+        const myAssignmentsResponse = await getMyAssignments();
+        const assignments = myAssignmentsResponse.data.result || [];
+
+        // Buscar la asignación por ID en el array
+        const foundAssignment = assignments.find(a => a.id === parseInt(id));
+
+        if (foundAssignment) {
+          console.log("✅ Asignación encontrada en cache de 'my-assignments'");
+          setAssignment(foundAssignment);
+          setFromCache(true);
+        } else {
+          console.error("❌ Asignación no encontrada en cache de 'my-assignments'");
+          setError("Error al cargar asignación: " + (err.response?.data?.message || err.message));
+        }
+      } catch (myAssignmentsErr) {
+        console.error("❌ Error al buscar en cache de 'my-assignments':", myAssignmentsErr);
+        setError("Error al cargar asignación: " + (err.response?.data?.message || err.message));
+      }
     }
   };
 
@@ -65,6 +106,21 @@ const DealerAssignmentDetails = () => {
           </button>
           <h1 className="text-2xl font-bold text-gray-800">Detalles de Asignación</h1>
         </div>
+
+        {/* Indicador de modo offline */}
+        {isOffline && (
+          <div className="bg-orange-500 text-white px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - Mostrando datos guardados</span>
+          </div>
+        )}
+
+        {/* Indicador de datos del cache */}
+        {fromCache && !isOffline && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            <p className="text-sm">ℹ️ Mostrando datos del cache local</p>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { OrderService } from "../../services/orderService";
-import { ArrowLeft, Package, Calendar, DollarSign, FileText, Store, User } from "lucide-react";
+import { ArrowLeft, Package, Calendar, DollarSign, FileText, Store, User, WifiOff } from "lucide-react";
+import { isOnline } from "../../db/db";
 
 const DealerOrderDetail = () => {
   const { orderId } = useParams();
@@ -9,18 +10,66 @@ const DealerOrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [fromCache, setFromCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(!isOnline());
 
   useEffect(() => {
     loadOrder();
+
+    // Listener para cambios de conexión
+    const handleOnline = () => {
+      setIsOffline(false);
+      loadOrder(); // Recargar cuando vuelve conexión
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [orderId]);
 
   const loadOrder = async () => {
     try {
+      setError("");
       const response = await OrderService.getOrderById(orderId);
       setOrder(response.data.result);
+      setFromCache(response.fromCache || false);
     } catch (err) {
-      console.error("Error cargando pedido:", err);
-      setError("Error al cargar pedido: " + (err.response?.data?.message || err.message));
+      console.warn("⚠️ No se pudo cargar pedido individual:", err.message);
+
+      // Si falla, intentar buscarlo en el cache de "my-orders" como fallback
+      try {
+        console.log("🔍 Buscando pedido en cache de 'my-orders' como fallback...");
+        const myOrdersResponse = await OrderService.getMyOrders();
+        const orders = myOrdersResponse.data.result || [];
+
+        // Buscar el pedido por ID en el array
+        const foundOrder = orders.find(o => o.id === parseInt(orderId));
+
+        if (foundOrder) {
+          console.log("✅ Pedido encontrado en fallback cache");
+          setOrder(foundOrder);
+          setFromCache(true);
+        } else {
+          // No encontrado en ningún cache
+          if (!isOnline()) {
+            setError("No hay conexión y este pedido no está disponible offline. Conéctate para verlo.");
+          } else {
+            setError("No se pudo cargar el pedido: " + (err.response?.data?.message || err.message));
+          }
+        }
+      } catch (myOrdersErr) {
+        // Fallback también falló
+        if (!isOnline()) {
+          setError("No hay conexión y no hay datos disponibles offline. Por favor, conéctate a internet.");
+        } else {
+          setError("Error al cargar pedido: " + (err.response?.data?.message || err.message));
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -106,6 +155,21 @@ const DealerOrderDetail = () => {
           </div>
           {getStatusBadge(order.status?.code)}
         </div>
+
+        {/* Indicador de modo offline */}
+        {isOffline && (
+          <div className="bg-orange-500 text-white px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - Mostrando datos guardados</span>
+          </div>
+        )}
+
+        {/* Indicador de datos del cache */}
+        {fromCache && !isOffline && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            <p className="text-sm">ℹ️ Mostrando datos del cache local</p>
+          </div>
+        )}
 
         {/* Info general */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-4">

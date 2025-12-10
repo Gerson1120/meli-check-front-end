@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { isOnline } from '../db/db';
 import api from '../services/api';
 
 const NotificationBell = () => {
@@ -8,26 +9,52 @@ const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [offline, setOffline] = useState(!isOnline());
+
+  // Detectar cambios de conexión
+  useEffect(() => {
+    const handleOnline = () => {
+      setOffline(false);
+      // Recargar notificaciones cuando vuelve la conexión
+      if (user?.id) {
+        loadNotifications();
+        loadUnreadCount();
+      }
+    };
+    const handleOffline = () => setOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [user]);
 
   // Cargar notificaciones al montar
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && !offline) {
       loadNotifications();
       loadUnreadCount();
 
       // Escuchar nuevas notificaciones
       const handleNewNotification = () => {
         console.log('📬 Nueva notificación recibida, refrescando...');
-        loadNotifications();
-        loadUnreadCount();
+        if (!offline) {
+          loadNotifications();
+          loadUnreadCount();
+        }
       };
 
       window.addEventListener('newNotification', handleNewNotification);
 
-      // Actualizar cada 30 segundos
+      // Actualizar cada 30 segundos (solo si está online)
       const interval = setInterval(() => {
-        loadNotifications();
-        loadUnreadCount();
+        if (isOnline()) {
+          loadNotifications();
+          loadUnreadCount();
+        }
       }, 30000);
 
       return () => {
@@ -35,47 +62,94 @@ const NotificationBell = () => {
         clearInterval(interval);
       };
     }
-  }, [user]);
+  }, [user, offline]);
 
   const loadNotifications = async () => {
+    // No hacer nada si está offline
+    if (!isOnline()) return;
+
     try {
       const response = await api.get(`/api/notifications/user/${user.id}`);
       if (response.data?.result) {
         setNotifications(response.data.result.slice(0, 10)); // Solo las últimas 10
       }
     } catch (error) {
-      console.error('Error cargando notificaciones:', error);
+      // Solo mostrar error si estamos online (para evitar spam en consola)
+      if (isOnline()) {
+        console.warn('⚠️ Error cargando notificaciones:', error.message);
+      }
     }
   };
 
   const loadUnreadCount = async () => {
+    // No hacer nada si está offline
+    if (!isOnline()) return;
+
     try {
       const response = await api.get(`/api/notifications/user/${user.id}/unread/count`);
       if (response.data?.result !== undefined) {
-        setUnreadCount(response.data.result);
+        const newCount = response.data.result;
+
+        // Si el contador aumentó, significa que hay nuevas notificaciones
+        if (newCount > unreadCount) {
+          console.log('🔔 Nuevas notificaciones detectadas! Disparando evento newNotification...');
+          // Disparar evento para que AuthContext refresque los datos
+          window.dispatchEvent(new CustomEvent('newNotification', {
+            detail: { count: newCount }
+          }));
+        }
+
+        setUnreadCount(newCount);
       }
     } catch (error) {
-      console.error('Error cargando contador:', error);
+      // Solo mostrar error si estamos online (para evitar spam en consola)
+      if (isOnline()) {
+        console.warn('⚠️ Error cargando contador:', error.message);
+      }
     }
   };
 
-  const markAsRead = async (notificationId) => {
+  const markAsRead = async (notificationId, notification) => {
+    // No hacer nada si está offline
+    if (!isOnline()) {
+      console.warn('⚠️ Sin conexión - No se puede marcar como leída');
+      return;
+    }
+
     try {
       await api.put(`/api/notifications/${notificationId}/read`);
       loadNotifications();
       loadUnreadCount();
+
+      // Si la notificación es sobre una nueva asignación, refrescar datos
+      if (notification?.title?.toLowerCase().includes('asignación') ||
+          notification?.title?.toLowerCase().includes('asignacion') ||
+          notification?.message?.toLowerCase().includes('asignación') ||
+          notification?.message?.toLowerCase().includes('asignacion')) {
+        console.log('🔔 Notificación de asignación detectada - Refrescando datos...');
+        // Disparar evento para refrescar datos
+        window.dispatchEvent(new CustomEvent('newNotification', {
+          detail: { type: 'assignment', notification }
+        }));
+      }
     } catch (error) {
-      console.error('Error marcando como leída:', error);
+      console.warn('⚠️ Error marcando como leída:', error.message);
     }
   };
 
   const markAllAsRead = async () => {
+    // No hacer nada si está offline
+    if (!isOnline()) {
+      console.warn('⚠️ Sin conexión - No se puede marcar todas como leídas');
+      return;
+    }
+
     try {
       await api.put(`/api/notifications/user/${user.id}/read-all`);
       loadNotifications();
       loadUnreadCount();
     } catch (error) {
-      console.error('Error marcando todas como leídas:', error);
+      console.warn('⚠️ Error marcando todas como leídas:', error.message);
     }
   };
 
@@ -146,7 +220,7 @@ const NotificationBell = () => {
                     key={notification.id}
                     onClick={() => {
                       if (!notification.isRead) {
-                        markAsRead(notification.id);
+                        markAsRead(notification.id, notification);
                       }
                     }}
                     className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition ${
