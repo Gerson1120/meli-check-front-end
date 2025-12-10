@@ -1,25 +1,66 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { OrderService } from "../../services/orderService";
-import { ArrowLeft, Package, Calendar, DollarSign, FileText } from "lucide-react";
+import { ArrowLeft, Package, Calendar, DollarSign, FileText, WifiOff } from "lucide-react";
+import { isOnline } from "../../db/db";
+import { cacheArrayItems } from "../../services/cacheService";
 
 const DealerOrders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isOffline, setIsOffline] = useState(!isOnline());
+  const [fromCache, setFromCache] = useState(false);
 
   useEffect(() => {
     loadOrders();
+
+    // Listener para cambios de conexión
+    const handleOnline = () => {
+      setIsOffline(false);
+      loadOrders(); // Recargar cuando vuelve conexión
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    // 🔄 Listener para sincronización global de datos
+    const handleDataRefreshed = () => {
+      console.log('🔄 Datos refrescados globalmente - Recargando pedidos...');
+      loadOrders();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('dataRefreshed', handleDataRefreshed);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('dataRefreshed', handleDataRefreshed);
+    };
   }, []);
 
   const loadOrders = async () => {
     try {
+      setError("");
       const response = await OrderService.getMyOrders();
-      setOrders(response.data.result || []);
+      const ordersList = response.data.result || [];
+      setOrders(ordersList);
+      setFromCache(response.fromCache || false);
+
+      // Cachear cada pedido individualmente para poder acceder offline
+      if (ordersList.length > 0) {
+        await cacheArrayItems(ordersList, '/api/orders');
+      }
     } catch (err) {
       console.error("Error cargando pedidos:", err);
-      setError("Error al cargar pedidos: " + (err.response?.data?.message || err.message));
+
+      // Mensaje más amigable para offline sin cache
+      if (!isOnline() && err.message?.includes('cache')) {
+        setError("No hay conexión y no se han cargado pedidos previamente. Conéctate a internet para cargar tus pedidos.");
+      } else {
+        setError("Error al cargar pedidos: " + (err.response?.data?.message || err.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -83,6 +124,21 @@ const DealerOrders = () => {
             </p>
           </div>
         </div>
+
+        {/* Indicador de modo offline */}
+        {isOffline && (
+          <div className="bg-orange-500 text-white px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - Mostrando datos guardados</span>
+          </div>
+        )}
+
+        {/* Indicador de datos del cache */}
+        {fromCache && !isOffline && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            <p className="text-sm">ℹ️ Mostrando datos del cache local</p>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

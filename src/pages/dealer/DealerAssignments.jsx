@@ -1,26 +1,66 @@
 import { useEffect, useState } from "react";
 import { getMyAssignments } from "../../services/assignmentService";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, WifiOff } from "lucide-react";
+import { isOnline } from "../../db/db";
+import { cacheArrayItems } from "../../services/cacheService";
 
 const DealerAssignments = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isOffline, setIsOffline] = useState(!isOnline());
+  const [fromCache, setFromCache] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAssignments();
+
+    // Listener para cambios de conexión
+    const handleOnline = () => {
+      setIsOffline(false);
+      loadAssignments(); // Recargar cuando vuelve conexión
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    // 🔄 Listener para sincronización global de datos
+    const handleDataRefreshed = () => {
+      console.log('🔄 Datos refrescados globalmente - Recargando asignaciones...');
+      loadAssignments();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('dataRefreshed', handleDataRefreshed);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('dataRefreshed', handleDataRefreshed);
+    };
   }, []);
 
   const loadAssignments = async () => {
     try {
       setError("");
       const res = await getMyAssignments();
-      setAssignments(res.data.result || []);
+      const assignmentsList = res.data.result || [];
+      setAssignments(assignmentsList);
+      setFromCache(res.fromCache || false);
+
+      // Cachear cada asignación individualmente para poder acceder offline
+      if (assignmentsList.length > 0) {
+        await cacheArrayItems(assignmentsList, '/api/assignments/me');
+      }
     } catch (err) {
       console.error("Error cargando asignaciones del dealer:", err);
-      setError("Error al cargar asignaciones: " + (err.response?.data?.message || err.message));
+
+      // Mensaje más amigable para offline sin cache
+      if (!isOnline() && err.message?.includes('cache')) {
+        setError("No hay conexión y no se han cargado asignaciones previamente. Conéctate a internet para cargar tus asignaciones.");
+      } else {
+        setError("Error al cargar asignaciones: " + (err.response?.data?.message || err.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -42,6 +82,21 @@ const DealerAssignments = () => {
             Todas mis asignaciones
           </h1>
         </div>
+
+        {/* Indicador de modo offline */}
+        {isOffline && (
+          <div className="bg-orange-500 text-white px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+            <WifiOff className="w-5 h-5" />
+            <span className="font-semibold">Modo offline - Mostrando datos guardados</span>
+          </div>
+        )}
+
+        {/* Indicador de datos del cache */}
+        {fromCache && !isOffline && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            <p className="text-sm">ℹ️ Mostrando datos del cache local</p>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

@@ -2,6 +2,8 @@ import { db, updateLastSync, isOnline } from '../db/db';
 import { getMyAssignments } from './assignmentService';
 import { ProductService } from './productService';
 import { VisitService } from './visitService';
+import { OrderService } from './orderService';
+import { cacheArrayItems } from './cacheService';
 import api from './api';
 
 /**
@@ -142,6 +144,122 @@ export const syncAllDataToLocal = async () => {
   await updateLastSync('lastFullSync');
   console.log('✅ Sincronización completa finalizada', results);
 
+  return results;
+};
+
+/**
+ * PRE-CACHEA TODOS LOS DATOS DEL DEALER usando el nuevo sistema de cache API
+ * Esta función se ejecuta automáticamente al hacer login
+ * Cachea: visitas, pedidos, asignaciones, productos y tiendas
+ */
+export const preCacheAllDealerData = async () => {
+  console.log('🚀 Pre-cacheando todos los datos del dealer...');
+  const results = {
+    visits: 0,
+    orders: 0,
+    assignments: 0,
+    products: 0,
+    errors: []
+  };
+
+  // 1. Pre-cachear visitas de hoy
+  try {
+    console.log('📅 Pre-cacheando visitas de hoy...');
+    const visitsResponse = await VisitService.getTodayVisits();
+    const visits = visitsResponse.data.result || [];
+    results.visits = visits.length;
+
+    // Auto-cachear cada visita individual
+    if (visits.length > 0) {
+      await cacheArrayItems(visits, '/api/visits');
+    }
+    console.log(`✅ ${visits.length} visitas pre-cacheadas`);
+  } catch (error) {
+    console.error('❌ Error pre-cacheando visitas:', error);
+    results.errors.push({ type: 'visits', error: error.message });
+  }
+
+  // 2. Pre-cachear mis pedidos
+  try {
+    console.log('📦 Pre-cacheando mis pedidos...');
+    const ordersResponse = await OrderService.getMyOrders();
+    const orders = ordersResponse.data.result || [];
+    results.orders = orders.length;
+
+    // Auto-cachear cada pedido individual
+    if (orders.length > 0) {
+      await cacheArrayItems(orders, '/api/orders');
+    }
+    console.log(`✅ ${orders.length} pedidos pre-cacheados`);
+  } catch (error) {
+    console.error('❌ Error pre-cacheando pedidos:', error);
+    results.errors.push({ type: 'orders', error: error.message });
+  }
+
+  // 3. Pre-cachear mis asignaciones
+  try {
+    console.log('🏪 Pre-cacheando mis asignaciones...');
+    const assignmentsResponse = await getMyAssignments();
+    const assignments = assignmentsResponse.data.result || [];
+    results.assignments = assignments.length;
+
+    // Auto-cachear cada asignación individual
+    if (assignments.length > 0) {
+      await cacheArrayItems(assignments, '/api/assignments/me');
+
+      // También guardar las tiendas de las asignaciones en db.stores para escaneo QR offline
+      console.log(`🔄 Actualizando ${assignments.length} tiendas en db.stores...`);
+      let storesUpdated = 0;
+      for (const assignment of assignments) {
+        if (assignment.store) {
+          try {
+            console.log(`💾 Guardando tienda ${assignment.store.id} (${assignment.store.name}) en db.stores`);
+            // Usar put en lugar de add para actualizar si ya existe
+            await db.stores.put({
+              id: assignment.store.id,
+              name: assignment.store.name,
+              address: assignment.store.address,
+              latitude: assignment.store.latitude,
+              longitude: assignment.store.longitude,
+              qrCode: assignment.store.qrCode,
+              status: assignment.store.status,
+              lastSync: new Date().toISOString()
+            });
+            storesUpdated++;
+            console.log(`✅ Tienda ${assignment.store.id} guardada exitosamente`);
+          } catch (storeError) {
+            console.error(`❌ Error guardando tienda ${assignment.store.id}:`, storeError);
+          }
+        }
+      }
+      console.log(`✅ ${assignments.length} asignaciones pre-cacheadas`);
+      console.log(`✅ ${storesUpdated} tiendas actualizadas en db.stores`);
+    }
+  } catch (error) {
+    console.error('❌ Error pre-cacheando asignaciones:', error);
+    results.errors.push({ type: 'assignments', error: error.message });
+  }
+
+  // 4. Pre-cachear productos activos
+  try {
+    console.log('🛍️ Pre-cacheando productos activos...');
+    const productsResponse = await ProductService.getActives();
+    const products = productsResponse.data.result || [];
+    results.products = products.length;
+    console.log(`✅ ${products.length} productos pre-cacheados`);
+  } catch (error) {
+    console.error('❌ Error pre-cacheando productos:', error);
+    results.errors.push({ type: 'products', error: error.message });
+  }
+
+  // 5. También ejecutar la sincronización vieja (para compatibilidad con código existente)
+  try {
+    await syncAllDataToLocal();
+  } catch (error) {
+    console.warn('⚠️ Error en sincronización legacy:', error);
+  }
+
+  console.log('✅ Pre-caché completado:', results);
   return results;
 };
 

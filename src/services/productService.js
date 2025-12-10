@@ -1,9 +1,22 @@
 import api from "./api";
+import { networkFirstThenCache } from "./cacheService";
 
 export const ProductService = {
-  getAll: () => api.get('/api/products/'),
-  getActives: () => api.get("/api/products/active"),
-  getOne: (id) => api.get(`/api/products/${id}`),
+  getAll: () =>
+    networkFirstThenCache(
+      () => api.get('/api/products/'),
+      '/api/products/'
+    ),
+  getActives: () =>
+    networkFirstThenCache(
+      () => api.get("/api/products/active"),
+      "/api/products/active"
+    ),
+  getOne: (id) =>
+    networkFirstThenCache(
+      () => api.get(`/api/products/${id}`),
+      `/api/products/${id}`
+    ),
 
   create: ({ name, sku, unit, price, file }) => {
     const formData = new FormData();
